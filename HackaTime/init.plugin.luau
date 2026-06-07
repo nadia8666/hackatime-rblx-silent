@@ -19,13 +19,12 @@ local Main = {}
 -- Service imports
 local RunService = game:GetService("RunService")
 -- Module imports
-local Modules = script:WaitForChild("Modules")
-local Config = require(Modules:WaitForChild("Config"))
-local API = require(Modules:WaitForChild("API"))
-local AI = require(Modules:WaitForChild("AI"))
-local GUI = require(Modules:WaitForChild("GUI"))
-local Heartbeat = require(Modules:WaitForChild("Heartbeat"))
-local Playtest = require(Modules:WaitForChild("Playtest"))
+local Config = require("@self/Modules/Config")
+local API = require("@self/Modules/API")
+local AI = require("@self/Modules/AI")
+local GUI = require("@self/Modules/GUI")
+local Heartbeat = require("@self/Modules/Heartbeat")
+local Playtest = require("@self/Modules/Playtest")
 -- Plugin state
 Main.IsOffline = false
 Main.LastErrorCode = nil
@@ -86,10 +85,10 @@ local function init()
 		-- Server-side playtest initialization
 		if RunService:IsServer() then
 			pcall(function()
-				Playtest.init()
+				Playtest.init(plugin)
 				Playtest.started()
 				game:BindToClose(function()
-					Playtest.ended()
+					Playtest.ended(plugin)
 				end)
 			end)
 		end
@@ -106,7 +105,7 @@ local function init()
 	Config.getCurrentProjectName()
 	HeartbeatQueue = Config.loadQueue()
 	-- Initialize other modules
-	Playtest.init()
+	Playtest.init(plugin)
 	Heartbeat.init(AI.ActivityCategories)
 	AI.init(Playtest, Heartbeat, plugin)
 	-- Plugin unloading handler (from inspiration)

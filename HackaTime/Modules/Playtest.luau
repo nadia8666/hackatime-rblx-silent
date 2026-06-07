@@ -38,7 +38,7 @@ end
 function PlayTestTracker.getKey()
 	return `place_{game.PlaceId}_playtest_time`
 end
-function PlayTestTracker.ended()
+function PlayTestTracker.ended(plugin)
 	if not PlayTestTracker.isPlayTesting then
 		return
 	end
@@ -79,10 +79,10 @@ end
 function Playtest.started()
 	PlayTestTracker.started()
 end
-function Playtest.ended()
-	PlayTestTracker.ended()
+function Playtest.ended(plugin)
+	PlayTestTracker.ended(plugin)
 end
-function Playtest.init()
+function Playtest.init(plugin)
 	RunService.Heartbeat:Connect(function()
 		local isRunning = RunService:IsRunning()
 		local isStudio = RunService:IsStudio()
@@ -90,7 +90,7 @@ function Playtest.init()
 		if isPlayTest and not PlayTestTracker.isPlayTesting then
 			PlayTestTracker.started()
 		elseif not isPlayTest and PlayTestTracker.isPlayTesting then
-			PlayTestTracker.ended()
+			PlayTestTracker.ended(plugin)
 		end
 	end)
 	-- Handle server-side playtest startup (inspiration approach)
@@ -103,7 +103,7 @@ function Playtest.init()
 	if isServer then
 		game:BindToClose(function()
 			if PlayTestTracker.isPlayTesting then
-				PlayTestTracker.ended()
+				PlayTestTracker.ended(plugin)
 			end
 		end)
 	end
