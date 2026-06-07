@@ -1,7 +1,8 @@
 --[[
 	Util
 	A collection of shared helper functions used by various modules.
-]]--
+]]
+--
 local Util = {}
 local StudioService = game:GetService("StudioService")
 local Selection = game:GetService("Selection")
@@ -17,7 +18,7 @@ function Util.getActiveScript()
 end
 function Util.isDescendantOfType(instance, types)
 	if type(types) == "string" then
-		types = {types}
+		types = { types }
 	end
 	local current = instance
 	while current do
@@ -47,4 +48,4 @@ function Util.isConsole(document)
 	local name = document.Name and document.Name:lower() or ""
 	return name:match("output") or name:match("console")
 end
-return Util 
+return Util

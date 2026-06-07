@@ -6,7 +6,8 @@
 	- Better activity time tracking
 	- Improved dominant activity calculation
 	- Enhanced line diff algorithm
-]]--
+]]
+--
 local Heartbeat = {}
 
 local HeartbeatInterval = 60 -- seconds
@@ -14,6 +15,7 @@ local HeartbeatInterval = 60 -- seconds
 -- ScriptDocument tracking state
 local documentStates = {}
 local fallbackStates = {}
+local changeStates = {}
 local lastKnownLineInfo = nil
 local lastHeartbeatPayload = nil
 
@@ -22,7 +24,7 @@ local ActivityTimeTracking = {
 	LastReset = os.time(),
 	TimeSpent = {},
 	CurrentActivity = nil,
-	LastActivitySwitch = os.time()
+	LastActivitySwitch = os.time(),
 }
 
 function Heartbeat.init(activityCategories)
@@ -33,7 +35,7 @@ end
 
 function Heartbeat.updateActivityTimeTracking(currentCategory, activityCategories)
 	local now = os.time()
-	
+
 	-- If activity changed, record time spent in previous activity
 	if currentCategory ~= ActivityTimeTracking.CurrentActivity then
 		if ActivityTimeTracking.CurrentActivity then
@@ -41,18 +43,18 @@ function Heartbeat.updateActivityTimeTracking(currentCategory, activityCategorie
 			if not ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity] then
 				ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity] = 0
 			end
-			ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity] = 
-				ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity] + timeSpent
+			ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity] = ActivityTimeTracking.TimeSpent[ActivityTimeTracking.CurrentActivity]
+				+ timeSpent
 		end
 		ActivityTimeTracking.CurrentActivity = currentCategory
 		ActivityTimeTracking.LastActivitySwitch = now
 	end
-	
+
 	-- Check if it's time to send a heartbeat
 	if now - ActivityTimeTracking.LastReset >= HeartbeatInterval then
 		return true
 	end
-	
+
 	return false
 end
 
@@ -72,12 +74,14 @@ function Heartbeat.getDominantActivity(activityCategories)
 	end
 
 	-- Add current activity time if it's active
-	if ActivityTimeTracking.CurrentActivity and 
-		ActivityTimeTracking.CurrentActivity ~= activityCategories.IDLE and 
-		ActivityTimeTracking.CurrentActivity ~= activityCategories.UNKNOWN then
+	if
+		ActivityTimeTracking.CurrentActivity
+		and ActivityTimeTracking.CurrentActivity ~= activityCategories.IDLE
+		and ActivityTimeTracking.CurrentActivity ~= activityCategories.UNKNOWN
+	then
 		local currentActivityTime = now - ActivityTimeTracking.LastActivitySwitch
-		activityTimes[ActivityTimeTracking.CurrentActivity] = 
-			(activityTimes[ActivityTimeTracking.CurrentActivity] or 0) + currentActivityTime
+		activityTimes[ActivityTimeTracking.CurrentActivity] = (activityTimes[ActivityTimeTracking.CurrentActivity] or 0)
+			+ currentActivityTime
 		totalActiveTime = totalActiveTime + currentActivityTime
 	end
 
@@ -88,9 +92,7 @@ function Heartbeat.getDominantActivity(activityCategories)
 
 	-- Find the activity with the most time spent
 	for category, timeSpent in pairs(activityTimes) do
-		if category ~= activityCategories.IDLE and 
-			category ~= activityCategories.UNKNOWN and 
-			timeSpent > maxTime then
+		if category ~= activityCategories.IDLE and category ~= activityCategories.UNKNOWN and timeSpent > maxTime then
 			maxTime = timeSpent
 			dominantActivity = category
 		end
@@ -113,8 +115,12 @@ local function getTrackedActivityTimes(activityCategories)
 
 	if ActivityTimeTracking.CurrentActivity then
 		local currentActivityTime = now - ActivityTimeTracking.LastActivitySwitch
-		activityTimes[ActivityTimeTracking.CurrentActivity] = (activityTimes[ActivityTimeTracking.CurrentActivity] or 0) + currentActivityTime
-		if ActivityTimeTracking.CurrentActivity ~= activityCategories.IDLE and ActivityTimeTracking.CurrentActivity ~= activityCategories.UNKNOWN then
+		activityTimes[ActivityTimeTracking.CurrentActivity] = (activityTimes[ActivityTimeTracking.CurrentActivity] or 0)
+			+ currentActivityTime
+		if
+			ActivityTimeTracking.CurrentActivity ~= activityCategories.IDLE
+			and ActivityTimeTracking.CurrentActivity ~= activityCategories.UNKNOWN
+		then
 			totalActiveTime = totalActiveTime + currentActivityTime
 		end
 	end
@@ -124,7 +130,7 @@ end
 
 function Heartbeat.resetActivityTimeTracking()
 	local now = os.time()
-	
+
 	-- "Cut" the current activity session so we don't double-count time in the next interval
 	if ActivityTimeTracking.CurrentActivity then
 		ActivityTimeTracking.LastActivitySwitch = now
@@ -153,6 +159,13 @@ local function getDocumentName(document, scriptInstance)
 	return (success and name) or "Script"
 end
 
+local function getSourceState(lineInfo)
+	if not lineInfo or not lineInfo.entity then
+		return nil
+	end
+	return changeStates[lineInfo.source_key]
+end
+
 function Heartbeat.trackScriptDocument(document)
 	if not document then
 		return nil
@@ -164,6 +177,7 @@ function Heartbeat.trackScriptDocument(document)
 	end)
 
 	local entity = getDocumentName(document, scriptInstance)
+	local sourceKey = "doc:" .. tostring(document)
 	local text = ""
 	local lineCount = nil
 	local cursorLine = nil
@@ -201,18 +215,25 @@ function Heartbeat.trackScriptDocument(document)
 		end
 	end
 
+	changeStates[sourceKey] = {
+		text = text,
+		lineCount = lineCount,
+		entity = entity,
+		updated_at = os.clock(),
+	}
+
 	documentStates[document] = {
 		text = text,
 		lineCount = lineCount,
 		lastUpdate = os.clock(),
-		entity = entity
+		entity = entity,
 	}
 
 	if not lastKnownLineInfo or lastKnownLineInfo.entity ~= entity then
 		lastKnownLineInfo = {
 			additions = 0,
 			deletions = 0,
-			entity = entity
+			entity = entity,
 		}
 	end
 
@@ -225,6 +246,7 @@ function Heartbeat.trackScriptDocument(document)
 	lastKnownLineInfo.source_length = text and #text or nil
 	lastKnownLineInfo.updated_at = os.time()
 	lastKnownLineInfo.source = "ScriptDocument"
+	lastKnownLineInfo.source_key = sourceKey
 	lastKnownLineInfo.additions = (lastKnownLineInfo.additions or 0) + additions
 	lastKnownLineInfo.deletions = (lastKnownLineInfo.deletions or 0) + deletions
 
@@ -237,6 +259,7 @@ function Heartbeat.trackScriptFallback(scriptInstance, cursorPosition)
 	end
 
 	local entity = getDocumentName(nil, scriptInstance)
+	local sourceKey = "fallback:" .. tostring(scriptInstance)
 	local success, source = pcall(function()
 		return scriptInstance.Source
 	end)
@@ -260,17 +283,24 @@ function Heartbeat.trackScriptFallback(scriptInstance, cursorPosition)
 		end
 	end
 
+	changeStates[sourceKey] = {
+		source = source,
+		lineCount = lineCount,
+		entity = entity,
+		updated_at = os.clock(),
+	}
+
 	fallbackStates[scriptInstance] = {
 		source = source,
 		lineCount = lineCount,
-		lastUpdate = os.clock()
+		lastUpdate = os.clock(),
 	}
 
 	if not lastKnownLineInfo or lastKnownLineInfo.entity ~= entity then
 		lastKnownLineInfo = {
 			additions = 0,
 			deletions = 0,
-			entity = entity
+			entity = entity,
 		}
 	end
 
@@ -281,6 +311,7 @@ function Heartbeat.trackScriptFallback(scriptInstance, cursorPosition)
 	lastKnownLineInfo.source_length = source and #source or nil
 	lastKnownLineInfo.updated_at = os.time()
 	lastKnownLineInfo.source = "LuaSourceContainer.Source"
+	lastKnownLineInfo.source_key = sourceKey
 	lastKnownLineInfo.additions = (lastKnownLineInfo.additions or 0) + additions
 	lastKnownLineInfo.deletions = (lastKnownLineInfo.deletions or 0) + deletions
 
@@ -296,10 +327,13 @@ function Heartbeat.createHeartbeatPayload(scriptName, activity, lineInfo, config
 
 	-- Use provided lineInfo, or fall back to lastKnownLineInfo
 	local effectiveLineInfo = lineInfo or lastKnownLineInfo
-	
+	local sourceState = getSourceState(effectiveLineInfo)
+
 	-- Determine if this is a write operation
 	local isWrite = false
-	if effectiveLineInfo then
+	if sourceState then
+		isWrite = (sourceState.additions or 0) > 0 or (sourceState.deletions or 0) > 0
+	elseif effectiveLineInfo then
 		isWrite = (effectiveLineInfo.additions or 0) > 0 or (effectiveLineInfo.deletions or 0) > 0
 	end
 
@@ -315,13 +349,16 @@ function Heartbeat.createHeartbeatPayload(scriptName, activity, lineInfo, config
 		lines = effectiveLineInfo and effectiveLineInfo.total_lines or nil,
 		lineno = effectiveLineInfo and effectiveLineInfo.cursor_line or nil,
 		cursorpos = effectiveLineInfo and effectiveLineInfo.cursor_column or nil,
-		line_additions = effectiveLineInfo and effectiveLineInfo.additions or 0,
-		line_deletions = effectiveLineInfo and effectiveLineInfo.deletions or 0,
+		line_additions = sourceState and sourceState.additions
+			or (effectiveLineInfo and effectiveLineInfo.additions or 0),
+		line_deletions = sourceState and sourceState.deletions
+			or (effectiveLineInfo and effectiveLineInfo.deletions or 0),
+		source_key = effectiveLineInfo and effectiveLineInfo.source_key or nil,
 		machine_name_id = config.MACHINE_ID,
 		operating_system = config.OS_TYPE,
 		project_root_count = 1,
 		branch = "main",
-		user_agent = "roblox-studio-wakatime/2.2.0"
+		user_agent = "roblox-studio-wakatime/3.0.0",
 	}
 
 	lastHeartbeatPayload = payload
@@ -330,6 +367,10 @@ end
 
 function Heartbeat.getLineInfo()
 	return lastKnownLineInfo
+end
+
+function Heartbeat.getSourceState()
+	return changeStates[lastKnownLineInfo and lastKnownLineInfo.source_key or nil]
 end
 
 function Heartbeat.getLastHeartbeatPayload()
@@ -359,24 +400,24 @@ end
 function Heartbeat.shouldSendHeartbeat(activityCategories, AI)
 	local now = os.time()
 	local timeSinceReset = now - ActivityTimeTracking.LastReset
-	
+
 	-- Must be at least HeartbeatInterval (60 seconds)
 	if timeSinceReset < HeartbeatInterval then
 		return false
 	end
-	
+
 	-- Must have countable activity this minute
 	if not Heartbeat.hasCountableActivityThisMinute(activityCategories) then
 		return false
 	end
-	
+
 	local _, totalActiveTime = getTrackedActivityTimes(activityCategories)
-	
+
 	-- REQUIRE AT LEAST 30 SECONDS OF ACTUAL ACTIVITY
 	if totalActiveTime < 30 then
 		return false
 	end
-	
+
 	-- Validate good faith activity if AI module available
 	if AI and AI.hasGoodFaithActivity then
 		-- Check for good faith activity in the last minute
@@ -385,7 +426,7 @@ function Heartbeat.shouldSendHeartbeat(activityCategories, AI)
 			return false
 		end
 	end
-	
+
 	return true
 end
 
@@ -408,7 +449,7 @@ function Heartbeat.getActivityStats()
 	local stats = {
 		current = ActivityTimeTracking.CurrentActivity,
 		timeSpent = activityTimes,
-		sinceReset = os.time() - ActivityTimeTracking.LastReset
+		sinceReset = os.time() - ActivityTimeTracking.LastReset,
 	}
 	return stats
 end
@@ -417,7 +458,7 @@ end
 function Heartbeat.cleanupOldFileStates()
 	local now = os.clock()
 	local maxAge = 3600 -- 1 hour
-	
+
 	for document, state in pairs(documentStates) do
 		if now - state.lastUpdate > maxAge then
 			documentStates[document] = nil

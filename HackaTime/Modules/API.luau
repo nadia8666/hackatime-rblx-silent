@@ -1,7 +1,8 @@
 --[[
 	API
 	Handles all network communication with the HackaTime API.
-]]--
+]]
+--
 local API = {}
 local HttpService = game:GetService("HttpService")
 local APIEndpoint = "https://hackatime.hackclub.com/api/hackatime/v1/users/current/heartbeats.bulk"
@@ -15,7 +16,7 @@ API.ERROR_CODES = {
 	AUTH_ERROR = "ERR_AUTH",
 	RATE_LIMIT = "ERR_RATE_LIMIT",
 	SERVER_ERROR = "ERR_SERVER",
-	UNKNOWN = "ERR_UNKNOWN"
+	UNKNOWN = "ERR_UNKNOWN",
 }
 function API.sendHeartbeats(queue, apiKey)
 	if not apiKey or apiKey == "" then
@@ -27,14 +28,14 @@ function API.sendHeartbeats(queue, apiKey)
 	local jsonData = HttpService:JSONEncode(queue)
 	local headers = {
 		["Authorization"] = apiKey:match("^Bearer ") and apiKey or ("Bearer " .. apiKey),
-		["Content-Type"] = "application/json"
+		["Content-Type"] = "application/json",
 	}
 	local success, response = pcall(function()
 		return HttpService:RequestAsync({
 			Url = APIEndpoint,
 			Method = "POST",
 			Headers = headers,
-			Body = jsonData
+			Body = jsonData,
 		})
 	end)
 	if not success then
@@ -66,7 +67,7 @@ function API.checkDomainAccess()
 	local success, response = pcall(function()
 		return HttpService:RequestAsync({
 			Url = UpEndpoint,
-			Method = "GET"
+			Method = "GET",
 		})
 	end)
 
@@ -92,7 +93,7 @@ function API.validateAPIKey(apiKey)
 		type = "file",
 		category = "coding",
 		is_write = false,
-		project = "api-key-test"
+		project = "api-key-test",
 	}
 
 	local success, response = pcall(function()
@@ -101,9 +102,9 @@ function API.validateAPIKey(apiKey)
 			Method = "POST",
 			Headers = {
 				["Authorization"] = apiKey:match("^Bearer ") and apiKey or ("Bearer " .. apiKey),
-				["Content-Type"] = "application/json"
+				["Content-Type"] = "application/json",
 			},
-			Body = HttpService:JSONEncode(payload)
+			Body = HttpService:JSONEncode(payload),
 		})
 	end)
 
@@ -121,4 +122,4 @@ function API.validateAPIKey(apiKey)
 
 	return false, API.ERROR_CODES.UNKNOWN, "Validation returned HTTP " .. tostring(response.StatusCode) .. "."
 end
-return API 
+return API

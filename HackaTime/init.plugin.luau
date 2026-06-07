@@ -1,7 +1,8 @@
 --[[
 	HackaTime for Roblox Studio
 	Main plugin script - handles initialization and orchestration of modules.
-]]--
+]]
+--
 -- Get the plugin object
 local plugin = script:FindFirstAncestorWhichIsA("Plugin")
 -- Debug: Check if plugin object exists
@@ -10,7 +11,9 @@ if not plugin then
 end
 
 -- Do not activate in local places
-if game.PlaceId == 0 then return end
+if game.PlaceId == 0 then
+	return
+end
 
 local Main = {}
 -- Service imports
@@ -118,16 +121,12 @@ local function init()
 		local iconOptions = {
 			"http://www.roblox.com/asset/?id=85649168710314",
 			"rbxassetid://85649168710314",
-			""
+			"",
 		}
 		local settingsButton
 		for i, iconUrl in ipairs(iconOptions) do
-			local buttonSuccess, buttonError = pcall(function()
-				settingsButton = toolbar:CreateButton(
-					"HackaTime", 
-					"Open HackaTime Plugin GUI", 
-					iconUrl
-				)
+			local buttonSuccess = pcall(function()
+				settingsButton = toolbar:CreateButton("HackaTime", "Open HackaTime Plugin GUI", iconUrl)
 			end)
 			if buttonSuccess then
 				break
@@ -152,7 +151,6 @@ local function init()
 	-- Start main loops
 	-- Main detection loop (following inspiration's approach)
 	local currentAction = -1
-	local currentSubaction = nil
 	local DeltaTime = 0
 	local LastTimeActionTracked = 0
 	local LastTimeStudioPlaytestingTracked = os.clock() - 15
@@ -165,19 +163,19 @@ local function init()
 		if not Config.getSetting("track_playtest") then
 			return
 		end
-		-- Check if API services are available (inspiration approach)
-		local has_internet, api_services_enabled = Playtest.checkIfCanAccessAPIServices()
-		if not api_services_enabled or not has_internet then
-			-- Could add a warning here if needed
-			return
-		end
 		-- Record playtest time (inspiration approach)
 		if Playtest then
 			local success = pcall(function()
 				local t = Playtest.getLastPlaytestInfo()
 				if t and t > 0 then
 					-- Record playtest time to heartbeat with proper timing
-					local hb = Heartbeat.createHeartbeatPayload("Play Testing", AI.ActivityCategories.PLAY_TESTING, nil, Config, AI.ActivityCategories)
+					local hb = Heartbeat.createHeartbeatPayload(
+						"Play Testing",
+						AI.ActivityCategories.PLAY_TESTING,
+						nil,
+						Config,
+						AI.ActivityCategories
+					)
 					table.insert(HeartbeatQueue, hb)
 				end
 			end)
@@ -190,7 +188,7 @@ local function init()
 	local function mainLoop()
 		local lct = lastCycleTick
 		lastCycleTick = os.clock()
-		DeltaTime = lastCycleTick - lct 
+		DeltaTime = lastCycleTick - lct
 		if DeltaTime > 10 then
 			DeltaTime = 1 -- PC went to sleep mode, don't add so much delta time
 		end
@@ -217,8 +215,6 @@ local function init()
 		end
 		-- Collect and record data with improved error handling
 		if os.clock() - LastTimeActionTracked > ACTION_TRACK_COOLDOWN then
-			local DeltaTimeForAI = math.clamp(os.clock() - LastTimeActionTracked, 0, 10)
-			
 			-- Track user actions
 			local trackSuccess, trackError = pcall(function()
 				AI.TrackUser()
@@ -226,30 +222,30 @@ local function init()
 			if not trackSuccess then
 				warn("HackaTime: Error tracking user activity:", trackError)
 			end
-			
+
 			-- Get current action
 			task.wait()
 			local newAction, newSubaction
 			local actionSuccess, actionError = pcall(function()
 				newAction, newSubaction = AI.GetCurrentAction()
 				newSubaction = AI.MergeSubaction(newSubaction, newAction)
-				currentSubaction = newSubaction
 			end)
-			
+
 			if not actionSuccess then
 				warn("HackaTime: Error getting current action:", actionError)
 			end
-			
+
 			-- Update current action if changed
 			if newAction and currentAction ~= newAction then
 				currentAction = newAction
 			end
-			
+
 			-- Record data and send heartbeats (only at full minute intervals)
 			task.wait()
 			local heartbeatSuccess, heartbeatError = pcall(function()
 				-- Update activity tracking for heartbeats
-				local timeToSendHeartbeat = Heartbeat.updateActivityTimeTracking(AI.CurrentActivityCategory, AI.ActivityCategories)
+				local timeToSendHeartbeat =
+					Heartbeat.updateActivityTimeTracking(AI.CurrentActivityCategory, AI.ActivityCategories)
 				if timeToSendHeartbeat then
 					-- Wrap heartbeat generation in pcall to ensure we always reset tracking
 					local genSuccess, genError = pcall(function()
@@ -259,15 +255,20 @@ local function init()
 							if dominantActivity then
 								local entityName = "Roblox Studio"
 								local lineInfo = nil
-								
+
 								-- Determine entity name and line info based on activity
-								if dominantActivity == AI.ActivityCategories.CODING or dominantActivity == AI.ActivityCategories.THINKING then
+								if
+									dominantActivity == AI.ActivityCategories.CODING
+									or dominantActivity == AI.ActivityCategories.THINKING
+								then
 									lineInfo = Heartbeat.getLineInfo()
 									if lineInfo and lineInfo.entity then
 										entityName = lineInfo.entity
 									end
 									if AI.LastActiveScript then
-										local success, name = pcall(function() return AI.LastActiveScript.Name end)
+										local success, name = pcall(function()
+											return AI.LastActiveScript.Name
+										end)
 										if not lineInfo or not lineInfo.entity then
 											entityName = (success and name) or "Script"
 										end
@@ -283,12 +284,18 @@ local function init()
 								elseif dominantActivity == AI.ActivityCategories.PLAY_TESTING then
 									entityName = "Play Testing"
 								end
-								
+
 								-- Create and queue heartbeat
-								local hb = Heartbeat.createHeartbeatPayload(entityName, dominantActivity, lineInfo, Config, AI.ActivityCategories)
+								local hb = Heartbeat.createHeartbeatPayload(
+									entityName,
+									dominantActivity,
+									lineInfo,
+									Config,
+									AI.ActivityCategories
+								)
 								table.insert(HeartbeatQueue, hb)
 								Heartbeat.resetLineInfo()
-								
+
 								-- Send heartbeats asynchronously
 								task.spawn(function()
 									pcall(function()
@@ -302,16 +309,16 @@ local function init()
 					if not genSuccess then
 						warn("HackaTime: Error generating heartbeat: " .. tostring(genError))
 					end
-					
+
 					-- Always reset tracking if interval passed, even if generation failed
 					Heartbeat.resetActivityTimeTracking()
 				end
 			end)
-			
+
 			if not heartbeatSuccess then
 				warn("HackaTime: Error processing heartbeat:", heartbeatError)
 			end
-			
+
 			LastTimeActionTracked = os.clock()
 			task.wait()
 		end
@@ -324,30 +331,30 @@ local function init()
 	RunService.Heartbeat:Connect(function()
 		-- When window loses focus, immediately stop ALL activity tracking
 		if not AI.isStudioFocused then
-			if updateGuiStatus then updateGuiStatus() end -- keep gui updated even if window not focused
+			if updateGuiStatus then
+				updateGuiStatus()
+			end -- keep gui updated even if window not focused
 			return -- Don't run main loop at all when unfocused
 		end
 		-- Run main loop logic only when focused
 		pcall(mainLoop)
 	end)
 	-- GUI update loop
-	spawn(function()
+	task.spawn(function()
 		while true do
-			wait(2)
+			task.wait(2)
 			if guiInstance and guiInstance.Enabled then
 				updateGuiStatus()
 			end
 		end
 	end)
 	-- Persist queue periodically and cleanup
-	spawn(function()
+	task.spawn(function()
 		while true do
-			wait(300) -- 5 minutes
+			task.wait(300) -- 5 minutes
 			Config.persistQueue(HeartbeatQueue)
 			-- Clean up old file states to prevent memory leaks
-			pcall(function()
-				Heartbeat.cleanupOldFileStates()
-			end)
+			pcall(Heartbeat.cleanupOldFileStates)
 		end
 	end)
 	-- BindToClose should only be used on the server side to avoid errors in the plugin environment
@@ -356,6 +363,5 @@ local function init()
 			Config.persistQueue(HeartbeatQueue)
 		end)
 	end
-	print("HackaTime Initialized! Happy Hacking!")
 end
 init()

@@ -1,7 +1,8 @@
 --[[
 	Config
 	Manages loading and saving of all plugin settings and persisted data.
-]]--
+]]
+--
 local Config = {}
 local HttpService = game:GetService("HttpService")
 local plugin
@@ -16,9 +17,11 @@ local function detectOperatingSystem()
 	local isMac = false
 	pcall(function()
 		local UserInputService = game:GetService("UserInputService")
-		isMac = UserInputService.KeyboardEnabled and
-			(UserInputService:IsKeyDown(Enum.KeyCode.LeftMeta) or
-				UserInputService:IsKeyDown(Enum.KeyCode.RightMeta))
+		isMac = UserInputService.KeyboardEnabled
+			and (
+				UserInputService:IsKeyDown(Enum.KeyCode.LeftMeta)
+				or UserInputService:IsKeyDown(Enum.KeyCode.RightMeta)
+			)
 	end)
 	return isMac and "darwin" or "Windows"
 end
@@ -103,21 +106,29 @@ function Config.loadQueue()
 	end)
 	if success and result then
 		Config.HeartbeatQueue = result
-		print("Heartbeat queue loaded. Items in queue: " .. #Config.HeartbeatQueue)
 	else
 		Config.HeartbeatQueue = {}
-		print("No saved heartbeat queue found or failed to load.")
 	end
 	return Config.HeartbeatQueue
 end
 function Config.getCurrentProjectName()
 	local MarketplaceService = game:GetService("MarketplaceService")
 	local storedId = plugin:GetSetting(`place_{game.PlaceId}_name`)
-	if storedId and storedId:IsA("StringValue") and storedId.Value ~= "" then
-		Config.CurrentProject = storedId.Value
-		return storedId.Value
+	if storedId and storedId ~= "" then
+		Config.CurrentProject = storedId
+		return Config.CurrentProject
 	end
-	local defaultNames = {["Game"] = true, ["Workspace"] = true, ["StarterPlayer"] = true, ["ReplicatedFirst"] = true, ["BaseGame"] = true, ["TestPlace"] = true, ["Project"] = true, ["Untitled"] = true, [""] = true}
+	local defaultNames = {
+		["Game"] = true,
+		["Workspace"] = true,
+		["StarterPlayer"] = true,
+		["ReplicatedFirst"] = true,
+		["BaseGame"] = true,
+		["TestPlace"] = true,
+		["Project"] = true,
+		["Untitled"] = true,
+		[""] = true,
+	}
 	local projectName = nil
 	pcall(function()
 		local info = MarketplaceService:GetProductInfo(game.PlaceId)
@@ -139,7 +150,7 @@ function Config.getCurrentProjectName()
 		Config.CurrentProject = projectName
 		return projectName
 	end
-	local newId = "RoProject-" .. HttpService:GenerateGUID(false):sub(1, 8)
+	local newId = "RobloxProject-" .. HttpService:GenerateGUID(false):sub(1, 8)
 	plugin:SetSetting(`place_{game.PlaceId}_name`, newId)
 	Config.CurrentProject = newId
 	return newId
@@ -168,4 +179,4 @@ end
 function Config.init(p)
 	plugin = p
 end
-return Config 
+return Config

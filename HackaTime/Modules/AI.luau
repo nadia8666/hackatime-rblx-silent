@@ -7,7 +7,8 @@
 	- Improved idle timeout handling
 	- Enhanced script tracking with proper line counting
 	- Robust error handling
-]]--
+]]
+--
 local AI = {}
 local Util = require(assert(script.Parent):WaitForChild("Util"))
 
@@ -25,13 +26,13 @@ AI.ActivityCategories = {
 	THINKING = "coding",
 	DEBUGGING = "debugging",
 	MODELING = "designing",
-	BUILDING = "building", 
+	BUILDING = "building",
 	UI_DESIGN = "designing",
 	CONFIGURING = "coding",
 	ANIMATING = "designing",
 	IDLE = "idle",
 	PLAY_TESTING = "manual testing",
-	UNKNOWN = "unknown"
+	UNKNOWN = "unknown",
 }
 
 -- Internal action types
@@ -46,8 +47,8 @@ local enum = {
 		Testing = 6,
 		ModellingNPC = 7,
 		Animating = 8,
-		Unknown = 9
-	}
+		Unknown = 9,
+	},
 }
 
 -- Map internal actions to WakaTime categories
@@ -61,7 +62,7 @@ local ActionToCategory = {
 	[enum.actionType.Testing] = AI.ActivityCategories.PLAY_TESTING,
 	[enum.actionType.ModellingNPC] = AI.ActivityCategories.MODELING,
 	[enum.actionType.Animating] = AI.ActivityCategories.ANIMATING,
-	[enum.actionType.Unknown] = AI.ActivityCategories.UNKNOWN
+	[enum.actionType.Unknown] = AI.ActivityCategories.UNKNOWN,
 }
 
 -- Improved timeout settings (more generous for thinking time)
@@ -81,8 +82,18 @@ local MOUSING_RELEVANT_FOR = 5
 
 -- UI Classes for detection
 local UIClasses = {
-	"ScreenGui", "BillboardGui", "SurfaceGui", "StarterGui", "Frame", "CanvasGroup",
-	"TextButton", "TextLabel", "ImageLabel", "ImageButton", "ScrollingFrame", "TextBox"
+	"ScreenGui",
+	"BillboardGui",
+	"SurfaceGui",
+	"StarterGui",
+	"Frame",
+	"CanvasGroup",
+	"TextButton",
+	"TextLabel",
+	"ImageLabel",
+	"ImageButton",
+	"ScrollingFrame",
+	"TextBox",
 }
 
 -- State variables
@@ -112,7 +123,7 @@ local activitySignals = {
 	lastKeyPress = 0,
 	lastCursorMove = 0,
 	lastScroll = 0,
-	lastSelection = 0
+	lastSelection = 0,
 }
 
 -- Document connections for cleanup
@@ -222,7 +233,9 @@ function AI.getCoreGuis()
 	local UIS = CoreGui:GetChildren()
 	local enabledUIs = {}
 	for i, u in ipairs(UIS) do
-		if i % 100 == 0 then task.wait() end
+		if i % 100 == 0 then
+			task.wait()
+		end
 		table.insert(enabledUIs, u)
 	end
 	return UIS
@@ -235,8 +248,10 @@ function AI.getHumanoidInFront()
 	task.wait()
 	for i, part in ipairs(partsNearCamera) do
 		if part:IsA("BasePart") then
-			if i % 50 == 0 then task.wait() end
-		local humanoid = AI.getSibling(part, "Humanoid")
+			if i % 50 == 0 then
+				task.wait()
+			end
+			local humanoid = AI.getSibling(part, "Humanoid")
 			if humanoid then
 				local _, isOnScreen = camera:WorldToViewportPoint(part.Position)
 				if isOnScreen then
@@ -369,16 +384,18 @@ end
 
 -- Enhanced: Get script information including line count
 local function getScriptInfo(script)
-	if not script then return nil end
-	
+	if not script then
+		return nil
+	end
+
 	local info = scriptStates[script] or {}
 	local source = nil
 	local lineCount = nil
-	
+
 	local cursorLine = nil
 	local cursorColumn = nil
 	local document = nil
-	
+
 	pcall(function()
 		local scriptDocuments = ScriptEditorService:GetScriptDocuments()
 		for _, scriptDocument in scriptDocuments do
@@ -402,14 +419,14 @@ local function getScriptInfo(script)
 		source = fallbackSource
 		lineCount = #string.split(source, "\n")
 	end
-	
+
 	return {
 		document = document,
 		source = source,
 		lineCount = lineCount or #string.split(source, "\n"),
 		cursorLine = cursorLine,
 		cursorColumn = cursorColumn,
-		lastModified = os.clock()
+		lastModified = os.clock(),
 	}
 end
 
@@ -428,8 +445,10 @@ function AI.getScriptingState()
 	if openedScript then
 		isScript = true
 		local currentInfo = getScriptInfo(openedScript)
-		if not currentInfo then return nil, nil end
-		
+		if not currentInfo then
+			return nil, nil
+		end
+
 		local source = currentInfo.source
 		AI.LastActiveScript = openedScript
 		AI.LastActiveScriptInfo = currentInfo
@@ -448,7 +467,7 @@ function AI.getScriptingState()
 				scriptStates[openedScript] = {
 					source = source,
 					lastTyped = os.clock(),
-					lineCount = currentInfo.lineCount
+					lineCount = currentInfo.lineCount,
 				}
 			end
 
@@ -457,7 +476,10 @@ function AI.getScriptingState()
 				if currentInfo.document then
 					heartbeatModule.trackScriptDocument(currentInfo.document)
 				else
-					heartbeatModule.trackScriptFallback(openedScript, {Line = currentInfo.cursorLine, Character = currentInfo.cursorColumn})
+					heartbeatModule.trackScriptFallback(
+						openedScript,
+						{ Line = currentInfo.cursorLine, Character = currentInfo.cursorColumn }
+					)
 				end
 			end
 		end
@@ -468,9 +490,9 @@ function AI.getScriptingState()
 			scriptStates[openedScript] = {
 				source = source,
 				lastTyped = os.clock(),
-				lineCount = currentInfo.lineCount
+				lineCount = currentInfo.lineCount,
 			}
-			
+
 			lastTimeTyped = os.clock()
 			lastTimeScriptChanged = os.clock()
 			currentActionPeakTime = os.clock()
@@ -483,7 +505,10 @@ function AI.getScriptingState()
 				if currentInfo.document then
 					heartbeatModule.trackScriptDocument(currentInfo.document)
 				else
-					heartbeatModule.trackScriptFallback(openedScript, {Line = currentInfo.cursorLine, Character = currentInfo.cursorColumn})
+					heartbeatModule.trackScriptFallback(
+						openedScript,
+						{ Line = currentInfo.cursorLine, Character = currentInfo.cursorColumn }
+					)
 				end
 			end
 		end
@@ -493,15 +518,17 @@ function AI.getScriptingState()
 			local timeSinceTyped = os.clock() - lastTimeTyped
 			local timeSinceActivity = os.clock() - lastUserActivity
 			local timeSinceScriptChange = os.clock() - lastTimeScriptChanged
-			
+
 			-- Active scripting
 			if timeSinceTyped < stillRelevantTime[enum.actionType.Scripting] then
 				return enum.actionType.Scripting, openedScript
-			-- Thinking/reading code
-			elseif timeSinceActivity < IDLE_TIMEOUT and 
-			       timeSinceScriptChange < stillRelevantTime[enum.actionType.ThinkingAboutCode] then
+				-- Thinking/reading code
+			elseif
+				timeSinceActivity < IDLE_TIMEOUT
+				and timeSinceScriptChange < stillRelevantTime[enum.actionType.ThinkingAboutCode]
+			then
 				return enum.actionType.ThinkingAboutCode, openedScript
-			-- Idle
+				-- Idle
 			else
 				return enum.actionType.Idle, openedScript
 			end
@@ -558,8 +585,7 @@ function AI.getActionBySelection()
 			end
 		end
 	else
-		if characterThatGotSelected and tickWhenSelectedCharacter and 
-		   os.clock() - tickWhenSelectedCharacter < 0.2 then
+		if characterThatGotSelected and tickWhenSelectedCharacter and os.clock() - tickWhenSelectedCharacter < 0.2 then
 			return enum.actionType.Animating, characterThatGotSelected
 		end
 	end
@@ -667,9 +693,11 @@ function AI.detectCurrentActivity(isPlayTesting)
 	AI.CurrentActivityCategory = ActionToCategory[currentAction]
 
 	-- Update last active script if scripting/thinking
-	if (currentAction == enum.actionType.Scripting or 
-	    currentAction == enum.actionType.ThinkingAboutCode) and 
-	   currentSubaction and currentSubaction:IsA("LuaSourceContainer") then
+	if
+		(currentAction == enum.actionType.Scripting or currentAction == enum.actionType.ThinkingAboutCode)
+		and currentSubaction
+		and currentSubaction:IsA("LuaSourceContainer")
+	then
 		AI.LastActiveScript = currentSubaction
 		AI.LastActiveScriptInfo = getScriptInfo(currentSubaction)
 	end
@@ -679,14 +707,24 @@ end
 function AI.hasGoodFaithActivity(timeWindow)
 	local now = os.clock()
 	local signals = 0
-	
+
 	-- Count how many different types of activity in time window
-	if now - activitySignals.lastTyping < timeWindow then signals = signals + 1 end
-	if now - activitySignals.lastMouseMove < timeWindow then signals = signals + 1 end
-	if now - activitySignals.lastKeyPress < timeWindow then signals = signals + 1 end
-	if now - activitySignals.lastCursorMove < timeWindow then signals = signals + 1 end
-	if now - activitySignals.lastScroll < timeWindow then signals = signals + 1 end
-	
+	if now - activitySignals.lastTyping < timeWindow then
+		signals = signals + 1
+	end
+	if now - activitySignals.lastMouseMove < timeWindow then
+		signals = signals + 1
+	end
+	if now - activitySignals.lastKeyPress < timeWindow then
+		signals = signals + 1
+	end
+	if now - activitySignals.lastCursorMove < timeWindow then
+		signals = signals + 1
+	end
+	if now - activitySignals.lastScroll < timeWindow then
+		signals = signals + 1
+	end
+
 	-- Require at least 2 different activity types for "good faith"
 	-- This prevents false positives from just having window open
 	return signals >= 2
@@ -747,10 +785,12 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 	BindToPlugin(ScriptEditorService.TextDocumentDidChange:Connect(function(document, changesArray)
 		-- Force focus to true whenever we detect typing, to prevent "stuck" false focus state
 		AI.isStudioFocused = true
-		
+
 		-- Use pcall for safety when accessing document properties
-		local scriptSuccess, script = pcall(function() return document:GetScript() end)
-		
+		local scriptSuccess, script = pcall(function()
+			return document:GetScript()
+		end)
+
 		if scriptSuccess and script then
 			-- Mark as actively typing
 			lastTimeTyped = os.clock()
@@ -758,22 +798,24 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 			lastInteractionTime = os.clock()
 			currentActionPeakTime = os.clock()
 			activitySignals.lastTyping = os.clock()
-			
+
 			-- Update script state
-			local success, source = pcall(function() return document:GetText() end)
+			local success, source = pcall(function()
+				return document:GetText()
+			end)
 			if success and source then
 				scriptStates[script] = {
 					source = source,
 					lastTyped = os.clock(),
-					lineCount = #string.split(source, "\n")
+					lineCount = #string.split(source, "\n"),
 				}
-				
+
 				-- Track ScriptDocument directly so draft text, cursor, and line counts stay accurate.
 				if heartbeatModule then
 					heartbeatModule.trackScriptDocument(document)
 				end
 			end
-			
+
 			-- Set to scripting mode
 			if currentAction ~= enum.actionType.Scripting then
 				currentAction = enum.actionType.Scripting
@@ -783,7 +825,7 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 			end
 		end
 	end))
-	
+
 	-- Enhanced: Track when scripts are opened and set up per-document tracking
 	BindToPlugin(ScriptEditorService.TextDocumentDidOpen:Connect(function(document)
 		local script = document:GetScript()
@@ -792,50 +834,54 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 			lastTimeScriptChanged = os.clock()
 			lastUserActivity = os.clock()
 			currentActionPeakTime = os.clock()
-			
+
 			-- Initialize script state
-			local success, source = pcall(function() return document:GetText() end)
+			local success, source = pcall(function()
+				return document:GetText()
+			end)
 			if success and source then
 				scriptStates[script] = {
 					source = source,
 					lastTyped = os.clock(),
-					lineCount = #string.split(source, "\n")
+					lineCount = #string.split(source, "\n"),
 				}
 			end
-			
+
 			-- Set up per-document event tracking
 			local connections = {}
-			
+
 			-- Track cursor/selection changes (detects code navigation WITHOUT typing)
-			local selectionConn = document.SelectionChanged:Connect(function(positionLine, positionChar, anchorLine, anchorChar)
-				lastInteractionTime = os.clock()
-				lastUserActivity = os.clock()
-				currentActionPeakTime = os.clock()
-				activitySignals.lastCursorMove = os.clock()
-				activitySignals.lastSelection = os.clock()
-				
-				-- Update ScriptDocument cursor and viewport context even when not typing.
-				if heartbeatModule and script == oldSelectedScript then
-					pcall(function()
-						heartbeatModule.trackScriptDocument(document)
-					end)
+			local selectionConn = document.SelectionChanged:Connect(
+				function(positionLine, positionChar, anchorLine, anchorChar)
+					lastInteractionTime = os.clock()
+					lastUserActivity = os.clock()
+					currentActionPeakTime = os.clock()
+					activitySignals.lastCursorMove = os.clock()
+					activitySignals.lastSelection = os.clock()
+
+					-- Update ScriptDocument cursor and viewport context even when not typing.
+					if heartbeatModule and script == oldSelectedScript then
+						pcall(function()
+							heartbeatModule.trackScriptDocument(document)
+						end)
+					end
+
+					-- If user is navigating code, they're actively working
+					if currentAction == enum.actionType.Idle then
+						currentAction = enum.actionType.ThinkingAboutCode
+						currentSubaction = script
+						AI.CurrentActivityCategory = ActionToCategory[currentAction]
+					end
 				end
-				
-				-- If user is navigating code, they're actively working
-				if currentAction == enum.actionType.Idle then
-					currentAction = enum.actionType.ThinkingAboutCode
-					currentSubaction = script
-					AI.CurrentActivityCategory = ActionToCategory[currentAction]
-				end
-			end)
+			)
 			table.insert(connections, selectionConn)
-			
+
 			-- Track viewport changes (detects scrolling = code reading)
 			local viewportConn = document.ViewportChanged:Connect(function(startLine, endLine)
 				lastInteractionTime = os.clock()
 				lastUserActivity = os.clock()
 				activitySignals.lastScroll = os.clock()
-				
+
 				-- User is actively reading/reviewing code
 				if currentAction == enum.actionType.Idle or currentAction == enum.actionType.Unknown then
 					currentAction = enum.actionType.ThinkingAboutCode
@@ -845,21 +891,23 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 				end
 			end)
 			table.insert(connections, viewportConn)
-			
+
 			-- Store connections for cleanup
 			documentConnections[document] = connections
 		end
 	end))
-	
+
 	-- Enhanced: Track when scripts are closed and clean up connections
 	BindToPlugin(ScriptEditorService.TextDocumentDidClose:Connect(function(document)
 		-- Wrap GetScript in pcall as accessing a closed document can error
-		local success, script = pcall(function() return document:GetScript() end)
+		local success, script = pcall(function()
+			return document:GetScript()
+		end)
 		if success and script and script == oldSelectedScript then
 			oldSelectedScript = nil
 			-- Don't immediately go idle, user might open another script
 		end
-		
+
 		-- Clean up document-specific connections
 		if documentConnections[document] then
 			for _, connection in documentConnections[document] do
@@ -869,7 +917,6 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 		end
 	end))
 
-
 	-- Selection changes with improved debouncing
 	local lastSelectionIndex = 0
 	BindToPlugin(Selection.SelectionChanged:Connect(function()
@@ -878,7 +925,7 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 		local mySelectionIndex = lastSelectionIndex
 		lastUserActivity = os.clock()
 		lastInteractionTime = os.clock()
-		
+
 		task.wait(0.05) -- Reduced wait for faster response
 
 		if lastSelectionIndex == mySelectionIndex then
@@ -904,13 +951,13 @@ function AI.init(playtestModule, heartbeatModuleRef, pluginObject)
 		activitySignals.lastMouseMove = os.clock()
 		CheckUnknown()
 	end))
-	
+
 	-- Also track key presses for better activity detection
 	BindToPlugin(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		-- Always track key presses as activity signal, even if processed by Studio (e.g. typing in editor)
 		activitySignals.lastKeyPress = os.clock()
 		AI.isStudioFocused = true -- Force focus true on key press
-		
+
 		if not gameProcessed then
 			lastUserActivity = os.clock()
 			lastInteractionTime = os.clock()
@@ -938,11 +985,13 @@ function AI.cleanup()
 	isPluginUnloaded = true
 	disconnectCurrentSelection()
 	scriptStates = {}
-	
+
 	-- Clean up all document connections
 	for document, connections in pairs(documentConnections) do
 		for _, connection in connections do
-			pcall(function() connection:Disconnect() end)
+			pcall(function()
+				connection:Disconnect()
+			end)
 		end
 	end
 	documentConnections = {}
