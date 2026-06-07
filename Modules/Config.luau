@@ -5,8 +5,6 @@
 local Config = {}
 local HttpService = game:GetService("HttpService")
 local plugin
--- Constants
-local WAKATIME_ID_KEY = "WakaTimeProjectId"
 -- Module state
 Config.WakaTimeAPIKey = ""
 Config.OS_TYPE = ""
@@ -114,7 +112,7 @@ function Config.loadQueue()
 end
 function Config.getCurrentProjectName()
 	local MarketplaceService = game:GetService("MarketplaceService")
-	local storedId = game:GetService("ReplicatedStorage"):FindFirstChild(WAKATIME_ID_KEY)
+	local storedId = plugin:GetSetting(`place_{game.PlaceId}_name`)
 	if storedId and storedId:IsA("StringValue") and storedId.Value ~= "" then
 		Config.CurrentProject = storedId.Value
 		return storedId.Value
@@ -137,28 +135,12 @@ function Config.getCurrentProjectName()
 		projectName = "Place" .. tostring(game.PlaceId)
 	end
 	if projectName then
-		local idValue = Instance.new("StringValue")
-		idValue.Name = WAKATIME_ID_KEY
-		idValue.Value = projectName
-		pcall(function()
-			idValue.Parent = game:GetService("ReplicatedStorage")
-			local comment = Instance.new("Message")
-			comment.Parent = idValue
-			comment.Text = "This is a WakaTime project identifier. Please don't delete it - it helps track your coding time consistently."
-		end)
+		plugin:SetSetting(`place_{game.PlaceId}_name`, projectName)
 		Config.CurrentProject = projectName
 		return projectName
 	end
 	local newId = "RoProject-" .. HttpService:GenerateGUID(false):sub(1, 8)
-	local idValue = Instance.new("StringValue")
-	idValue.Name = WAKATIME_ID_KEY
-	idValue.Value = newId
-	pcall(function()
-		idValue.Parent = game:GetService("ReplicatedStorage")
-		local comment = Instance.new("Message")
-		comment.Parent = idValue
-		comment.Text = "This is a WakaTime project identifier. Please don't delete it - it helps track your coding time consistently."
-	end)
+	plugin:SetSetting(`place_{game.PlaceId}_name`, newId)
 	Config.CurrentProject = newId
 	return newId
 end

@@ -8,6 +8,10 @@ local plugin = script:FindFirstAncestorWhichIsA("Plugin")
 if not plugin then
 	error("Plugin object not found! Make sure this script is inside a Plugin.")
 end
+
+-- Do not activate in local places
+if game.PlaceId == 0 then return end
+
 local Main = {}
 -- Service imports
 local RunService = game:GetService("RunService")
@@ -64,24 +68,7 @@ function Main.clearQueue()
 end
 function Main.setProject(newId)
 	if newId and newId ~= "" then
-		local idValue = Instance.new("StringValue")
-		idValue.Name = "WakaTimeProjectId"
-		idValue.Value = newId
-		local success = pcall(function()
-			local repStorage = game:GetService("ReplicatedStorage")
-			local existing = repStorage:FindFirstChild("WakaTimeProjectId")
-			if existing then existing:Destroy() end
-			idValue.Parent = repStorage
-			local comment = Instance.new("Message")
-			comment.Parent = idValue
-			comment.Text = "This is a WakaTime project identifier. Please don't delete it - it helps track your coding time consistently."
-		end)
-		if success then
-			Config.CurrentProject = newId
-			Main.LastStatusMessage = "Project name updated."
-		else
-			Main.LastStatusMessage = "Failed to set project name."
-		end
+		plugin:SetSetting(`place_{game.PlaceId}_name`, newId) --TODO: sanitize input if it is not already, due to json escapes
 	end
 end
 function Main.getQueueSize()
@@ -127,7 +114,7 @@ local function init()
 	-- Create toolbar and GUI with error handling
 	local success, errorMsg = pcall(function()
 		local toolbar = plugin:CreateToolbar("HackaTime")
-		-- Try different icon approaches in case the asset ID is problematic
+		-- Try different icon approaches in case the asset ID is problematic TODO: ...? what?
 		local iconOptions = {
 			"http://www.roblox.com/asset/?id=85649168710314",
 			"rbxassetid://85649168710314",
